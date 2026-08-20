@@ -174,42 +174,15 @@ app.post('/logout', (req, res) => {
   }
   req.session.destroy(() => res.json({ success: true }));
 });
+
 // Clock-In / Clock-Out Endpoint
 app.post('/api/clock-in', requireAuth, (req, res) => {
-  const { action } = req.body; // Expects something like { action: 'Clocked In' } or { action: 'Clocked Out' }
+  const { action } = req.body;
   const username = req.session.user.username;
-  
   const actionText = action || 'Clocked In';
   logActivity(username, actionText);
-  
   res.json({ success: true, message: `Successfully logged: ${actionText}` });
 });
-
-async function triggerClockIn(actionType) {
-  try {
-    const response = await fetch('/api/clock-in', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ action: actionType }) // e.g., 'Clocked In' or 'Clocked Out'
-    });
-    
-    const data = await response.json();
-    if (data.success) {
-      console.log(data.message);
-      // Optional: Update your UI or show a success message here
-    } else {
-      alert(data.message || 'Failed to record clock status.');
-    }
-  } catch (err) {
-    console.error('Error connecting to clock-in endpoint:', err);
-  }
-}
-
-// Attach this to your button event listeners, for example:
-// document.getElementById('clockInBtn').addEventListener('click', () => triggerClockIn('Clocked In'));
-// document.getElementById('clockOutBtn').addEventListener('click', () => triggerClockIn('Clocked Out'));
 
 // Calendar Endpoints
 app.get('/api/calendar', requireAuth, (req, res) => {
@@ -254,10 +227,7 @@ app.post('/api/contacts', requireAuth, (req, res) => {
     effectiveDate: body.effectiveDate || new Date().toISOString().split('T')[0],
     campaign: body.campaign || body.lineOfBusiness || 'ACA Health Care',
     ...body,
-    phone: (body.phone),
-    /*email: (body.email),
-    address: (body.address),
-    ssn: encrypt(body.ssn),*/
+    phone: body.phone,
     user: req.session.user.username,
     createdAt: new Date().toISOString()
   };
@@ -291,7 +261,7 @@ app.get('/api/download-excel', requireAdmin, (req, res) => {
   let csv = 'ID,Status,Campaign,Name,DOB,Phone,Email,Address,Carrier/Date,Level/Details,Premium,Notes,Agent\n';
 
   filtered.forEach(c => {
-    const fullName = firstName ? `${firstName} ${c.lastName || ''}`.trim() : (c.patientName || '');
+    const fullName = c.firstName ? `${c.firstName} ${c.lastName || ''}`.trim() : (c.patientName || '');
     csv += `"${c.id}","${c.status || 'Active'}","${c.campaign || ''}","${fullName}","${c.dob || ''}","${decrypt(c.phone) || ''}","${decrypt(c.email) || ''}","${decrypt(c.address) || ''}","${c.carrier || c.date || ''}","${c.level || c.moreDetails || ''}","${c.premium || '0.00'}","${(c.notes || c.family || '').replace(/"/g, '""')}","${c.user || ''}"\n`;
   });
 
@@ -300,8 +270,9 @@ app.get('/api/download-excel', requireAdmin, (req, res) => {
   res.send(csv);
 });
 
-// Sockets / Chat
+// Sockets / Chat Maps
 const activeUsers = new Map();
+const userSockets = new Map(); // Fixed: Defined properly at the top scope
 
 io.on('connection', (socket) => {
   const storedChatLogs = readData(CHAT_FILE, []);
@@ -310,21 +281,7 @@ io.on('connection', (socket) => {
   socket.on('register-user', (username) => {
     if (username) {
       activeUsers.set(socket.id, username);
-      userSockets.set(username, socket.id); // Map username to socket id
-      io.emit('update-active-users', Array.from(new Set(activeUsers.values())));
-    }
-  });
-// Keep track of connected sockets by username
-const userSockets = new Map();
-
-io.on('connection', (socket) => {
-  const storedChatLogs = readData(CHAT_FILE, []);
-  socket.emit('chat-history', storedChatLogs);
-
-  socket.on('register-user', (username) => {
-    if (username) {
-      activeUsers.set(socket.id, username);
-      userSockets.set(username, socket.id); // Map username to socket id
+      userSockets.set(username, socket.id);
       io.emit('update-active-users', Array.from(new Set(activeUsers.values())));
     }
   });
@@ -342,19 +299,19 @@ io.on('connection', (socket) => {
       text: data.text.replace(/</g, '&lt;').replace(/>/g, '&gt;')
     };
 
-    // Save public messages to history
+    // Save public messages to history and broadcast
     if (!isPrivate) {
       const chatHistory = readData(CHAT_FILE, []);
       chatHistory.push(chatEntry);
       writeData(CHAT_FILE, chatHistory);
-      io.emit('chat-message', chatEntry); // Broadcast to everyone
+      io.emit('chat-message', chatEntry);
     } else {
-      // Send privately to recipient and back to sender
+      // Send privately to recipient and back to sender only
       const recipientSocketId = userSockets.get(data.recipient);
       if (recipientSocketId) {
         io.to(recipientSocketId).emit('chat-message', chatEntry);
       }
-      socket.emit('chat-message', chatEntry); // Echo back to sender
+      socket.emit('chat-message', chatEntry);
     }
   });
 
@@ -367,6 +324,7 @@ io.on('connection', (socket) => {
     io.emit('update-active-users', Array.from(new Set(activeUsers.values())));
   });
 });
+
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Wynn CRM running on port ${PORT}`);
 });
