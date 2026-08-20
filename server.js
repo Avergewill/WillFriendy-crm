@@ -184,6 +184,32 @@ app.post('/api/clock-in', requireAuth, (req, res) => {
   res.json({ success: true, message: `Successfully logged: ${actionText}` });
 });
 
+async function triggerClockIn(actionType) {
+  try {
+    const response = await fetch('/api/clock-in', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ action: actionType }) // e.g., 'Clocked In' or 'Clocked Out'
+    });
+    
+    const data = await response.json();
+    if (data.success) {
+      console.log(data.message);
+      // Optional: Update your UI or show a success message here
+    } else {
+      alert(data.message || 'Failed to record clock status.');
+    }
+  } catch (err) {
+    console.error('Error connecting to clock-in endpoint:', err);
+  }
+}
+
+// Attach this to your button event listeners, for example:
+// document.getElementById('clockInBtn').addEventListener('click', () => triggerClockIn('Clocked In'));
+// document.getElementById('clockOutBtn').addEventListener('click', () => triggerClockIn('Clocked Out'));
+
 // Calendar Endpoints
 app.get('/api/calendar', requireAuth, (req, res) => {
   const notes = readData(CALENDAR_FILE, {});
