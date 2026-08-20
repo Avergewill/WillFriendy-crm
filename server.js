@@ -184,6 +184,12 @@ app.post('/api/clock-in', requireAuth, (req, res) => {
   res.json({ success: true, message: `Successfully logged: ${actionText}` });
 });
 
+// Admin Activity Log Endpoint (Fixes the admin log view)
+app.get('/api/activity-log', requireAdmin, (req, res) => {
+  const logs = readData(LOGS_FILE, []);
+  res.json(logs);
+});
+
 // Calendar Endpoints
 app.get('/api/calendar', requireAuth, (req, res) => {
   const notes = readData(CALENDAR_FILE, {});
@@ -270,9 +276,9 @@ app.get('/api/download-excel', requireAdmin, (req, res) => {
   res.send(csv);
 });
 
-// Sockets / Chat Maps
+// Sockets / Chat Maps (Defined properly at the top scope)
 const activeUsers = new Map();
-const userSockets = new Map(); // Fixed: Defined properly at the top scope
+const userSockets = new Map(); 
 
 io.on('connection', (socket) => {
   const storedChatLogs = readData(CHAT_FILE, []);
