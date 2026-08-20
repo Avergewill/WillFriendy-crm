@@ -314,20 +314,35 @@ io.on('connection', (socket) => {
       io.emit('update-active-users', Array.from(new Set(activeUsers.values())));
     }
   });
+// Keep track of connected sockets by username
+const userSockets = new Map();
+
+io.on('connection', (socket) => {
+  const storedChatLogs = readData(CHAT_FILE, []);
+  socket.emit('chat-history', storedChatLogs);
+
+  socket.on('register-user', (username) => {
+    if (username) {
+      activeUsers.set(socket.id, username);
+      userSockets.set(username, socket.id); // Map username to socket id
+      io.emit('update-active-users', Array.from(new Set(activeUsers.values())));
+    }
+  });
 
   socket.on('chat-message', (data) => {
     if (!data.text || !data.sender) return;
 
-    const isPrivate = date.recipient && date.recipient !== 'All';
-
+    const isPrivate = data.recipient && data.recipient !== 'All';
+    
     const chatEntry = {
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       sender: data.sender,
-      recipient: date.recipient || 'All',
+      recipient: data.recipient || 'All',
       isPrivate: isPrivate,
       text: data.text.replace(/</g, '&lt;').replace(/>/g, '&gt;')
     };
-// Save public messages to history
+
+    // Save public messages to history
     if (!isPrivate) {
       const chatHistory = readData(CHAT_FILE, []);
       chatHistory.push(chatEntry);
