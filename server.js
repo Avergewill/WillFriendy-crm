@@ -310,6 +310,7 @@ io.on('connection', (socket) => {
   socket.on('register-user', (username) => {
     if (username) {
       activeUsers.set(socket.id, username);
+      userSockets.set(username, socket.id); // Map username to socket id
       io.emit('update-active-users', Array.from(new Set(activeUsers.values())));
     }
   });
@@ -317,25 +318,40 @@ io.on('connection', (socket) => {
   socket.on('chat-message', (data) => {
     if (!data.text || !data.sender) return;
 
+    const isPrivate = date.recipient && date.recipient !== 'All';
+
     const chatEntry = {
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       sender: data.sender,
+      recipient: date.recipient || 'All',
+      isPrivate: isPrivate,
       text: data.text.replace(/</g, '&lt;').replace(/>/g, '&gt;')
     };
-
-    const chatHistory = readData(CHAT_FILE, []);
-    chatHistory.push(chatEntry);
-    writeData(CHAT_FILE, chatHistory);
-
-    io.emit('chat-message', chatEntry);
+// Save public messages to history
+    if (!isPrivate) {
+      const chatHistory = readData(CHAT_FILE, []);
+      chatHistory.push(chatEntry);
+      writeData(CHAT_FILE, chatHistory);
+      io.emit('chat-message', chatEntry); // Broadcast to everyone
+    } else {
+      // Send privately to recipient and back to sender
+      const recipientSocketId = userSockets.get(data.recipient);
+      if (recipientSocketId) {
+        io.to(recipientSocketId).emit('chat-message', chatEntry);
+      }
+      socket.emit('chat-message', chatEntry); // Echo back to sender
+    }
   });
 
   socket.on('disconnect', () => {
+    const username = activeUsers.get(socket.id);
+    if (username) {
+      userSockets.delete(username);
+    }
     activeUsers.delete(socket.id);
     io.emit('update-active-users', Array.from(new Set(activeUsers.values())));
   });
 });
-
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Wynn CRM running on port ${PORT}`);
 });
