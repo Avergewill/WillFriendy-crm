@@ -217,10 +217,10 @@ app.post('/api/contacts', requireAuth, (req, res) => {
     effectiveDate: body.effectiveDate || new Date().toISOString().split('T')[0],
     campaign: body.campaign || body.lineOfBusiness || 'ACA Health Care',
     ...body,
-    phone: encrypt(body.phone),
-    email: encrypt(body.email),
-    address: encrypt(body.address),
-    ssn: encrypt(body.ssn),
+    phone: (body.phone),
+    /*email: (body.email),
+    address: (body.address),
+    ssn: encrypt(body.ssn),*/
     user: req.session.user.username,
     createdAt: new Date().toISOString()
   };
