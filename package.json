@@ -92,7 +92,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node server.js"
   },
-<<<<<<< HEAD
+
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "express": "^4.19.2",
@@ -101,7 +101,7 @@
     "nodemailer": "^6.9.13",
     "socket.io": "^4.7.5"
   }
-=======
+
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Avergewill/Friendy-crm.git"
@@ -114,5 +114,4 @@
     "url": "https://github.com/Avergewill/Friendy-crm/issues"
   },
   "homepage": "https://github.com/Avergewill/Friendy-crm#readme"
->>>>>>> 0ac45cd (Update server.js and CRM files)
-}
+
