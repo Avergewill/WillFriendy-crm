@@ -173,6 +173,16 @@ app.post('/logout', (req, res) => {
   }
   req.session.destroy(() => res.json({ success: true }));
 });
+// Clock-In / Clock-Out Endpoint
+app.post('/api/clock-in', requireAuth, (req, res) => {
+  const { action } = req.body; // Expects something like { action: 'Clocked In' } or { action: 'Clocked Out' }
+  const username = req.session.user.username;
+  
+  const actionText = action || 'Clocked In';
+  logActivity(username, actionText);
+  
+  res.json({ success: true, message: `Successfully logged: ${actionText}` });
+});
 
 // Calendar Endpoints
 app.get('/api/calendar', requireAuth, (req, res) => {
