@@ -1,0 +1,6 @@
+﻿node_modules/
+.env
+*.log
+
+activity_logs.json
+chat_logs.json

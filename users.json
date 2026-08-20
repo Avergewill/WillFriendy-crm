@@ -1,0 +1,32 @@
+[
+  {
+<<<<<<< HEAD
+    "username": "Wyn",
+    "password": "WynnaJLkRX2FNhVSncs",
+    "isAdmin": true
+  },
+  {
+    "username": "Test",
+    "passwordHash": "$2a$10$6W4B1DrUHZ3mGTIpKfU4E.df3vFHAQYEeypskWV.fCgNJlE7r2vFu",
+    "isAdmin": false
+  },
+  {
+    "username": "Wilmer",
+    "passwordHash": "$2a$10$mOn/jlbiVTi85256.2jIE.FeXlr4oMa9ifGXckZo2F.ipSIypGvZ6",
+=======
+    "username": "Wilmer",
+    "password": "WynnaJLkRX2FNhVSncs ",
+    "isAdmin": false
+  },
+  {
+    "username": "WIll",
+    "password": "Sales123",
+    "isAdmin": false
+  },
+  {
+    "username": "1test",
+    "password": "Sales123",
+>>>>>>> 0ac45cd (Update server.js and CRM files)
+    "isAdmin": false
+  }
+]

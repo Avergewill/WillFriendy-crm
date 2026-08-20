@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wynn CRM - Separated Campaigns & Directories</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    :root {
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --secondary-color: #8b5cf6;
+      --bg-color: #f8fafc;
+      --card-bg: #ffffff;
+      --text-color: #1e293b;
+      --border-color: #e2e8f0;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 20px;
+    }
+
+    .main-layout {
+      display: flex;
+      gap: 20px;
+      max-width: 1350px;
+      margin: 0 auto;
+      align-items: flex-start;
+    }
+
+    .container {
+      flex: 1;
+      background: var(--card-bg);
+      padding: 30px;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+      min-width: 0;
+    }
+
+    .sidebar-panel {
+      width: 260px;
+      background: var(--card-bg);
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+      border: 1px solid var(--border-color);
+      position: sticky;
+      top: 20px;
+    }
+
+    .sidebar-panel h3 {
+      font-size: 16px;
+      margin-top: 0;
+      color: #334155;
+      border-bottom: 2px solid var(--border-color);
+      padding-bottom: 10px;
+    }
+
+    .active-user-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      padding: 8px 0;
+      color: #334155;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      background: var(--success);
+      border-radius: 50%;
+    }
+
+    .header-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid var(--border-color);
+      padding-bottom: 15px;
+      margin-bottom: 20px;
+    }
+
+    /* Analytics Bar */
+    .analytics-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      margin-bottom: 25px;
+    }
+
+    .analytics-card {
+      background: #f1f5f9;
+      padding: 15px;
+      border-radius: 10px;
+      border-left: 4px solid var(--primary);
+    }
+
+    .analytics-card h4 {
+      margin: 0;
+      font-size: 12px;
+      color: #64748b;
+      text-transform: uppercase;
+    }
+
+    .analytics-card div {
+      font-size: 22px;
+      font-weight: bold;
+      margin-top: 5px;
+      color: #0f172a;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 15px;
+      margin-bottom: 15px;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      font-size: 13px;
+      margin-bottom: 5px;
+      color: #475569;
+    }
+
+    input,
+    select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      box-sizing: border-box;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .btn-export {
+      background: var(--success);
+      color: white;
+      padding: 8px 16px;
+      border-radius: 6px;
+      text-decoration: none;
+      font-weight: bold;
+      font-size: 13px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+      font-size: 13px;
+    }
+
+    th,
+    td {
+      border: 1px solid var(--border-color);
+      padding: 10px;
+      text-align: left;
+    }
+
+    th {
+      background: #f8fafc;
+    }
+
+    .badge {
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+
+    .badge-active {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .badge-pending {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .badge-cancelled {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+
+    .login-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.8);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 3000;
+    }
+
+    .login-card {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      width: 350px;
+    }
+
+    .password-wrapper {
+      position: relative;
+    }
+
+    .password-toggle-btn {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 12px;
+      color: #64748b;
+      font-weight: 600;
+    }
+
+    .chat-widget-button {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: var(--primary);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 30px;
+      cursor: pointer;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .notification-badge {
+      background: var(--danger);
+      color: white;
+      font-size: 11px;
+      font-weight: bold;
+      padding: 2px 7px;
+      border-radius: 50%;
+      display: none;
+    }
+
+    .chat-popup {
+      position: fixed;
+      bottom: 80px;
+      right: 20px;
+      width: 340px;
+      background: white;
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+      display: none;
+      flex-direction: column;
+      z-index: 1000;
+      overflow: hidden;
+    }
+
+    .chat-popup.active {
+      display: flex;
+    }
+
+    .chat-popup-header {
+      background: var(--primary);
+      color: white;
+      padding: 12px 15px;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .chat-recipient-bar {
+      padding: 6px 12px;
+      background: #f1f5f9;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .chat-box {
+      height: 220px;
+      overflow-y: auto;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .chat-msg {
+      background: #f1f5f9;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+
+    .chat-msg.private {
+      background: #fef3c7;
+      border-left: 3px solid #f59e0b;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Login Modal -->
+  <!-- Login Modal -->
+  <div class="login-overlay" id="loginOverlay" style="display: flex;">
+    <div class="login-card">
+      <h2 id="modalTitle" style="margin-top:0; color:var(--primary);">🔒 Wynn CRM Login</h2>
+      <div id="loginError" style="color:red; font-size:12px; margin-bottom:10px; display:none;"></div>
+
+      <form id="loginForm" onsubmit="handleLogin(event)">
+        <div style="margin-bottom:10px;">
+          <label>Username</label>
+          <input type="text" id="loginUsername" required placeholder="Enter username" autocomplete="username">
+        </div>
+        <div style="margin-bottom:15px;">
+          <label>Password</label>
+          <div class="password-wrapper">
+            <input type="password" id="loginPassword" required placeholder="Enter password"
+              autocomplete="current-password">
+            <button type="button" class="password-toggle-btn"
+              onclick="togglePasswordVisibility('loginPassword', this)">👁️ Show</button>
+          </div>
+        </div>
+        <button type="submit" class="btn-primary" style="width:100%;">Sign In & Clock In</button>
+      </form>
+
+      <form id="registerForm" onsubmit="handleRegister(event)" style="display:none;">
+        <div style="margin-bottom:10px;">
+          <label>Username</label>
+          <input type="text" id="regUsername" required placeholder="Choose username" autocomplete="username">
+        </div>
+        <div style="margin-bottom:15px;">
+          <label>Password (Min 8 Chars)</label>
+          <div class="password-wrapper">
+            <input type="password" id="regPassword" required minlength="8" placeholder="Choose password"
+              autocomplete="new-password">
+            <button type="button" class="password-toggle-btn"
+              onclick="togglePasswordVisibility('regPassword', this)">👁️ Show</button>
+          </div>
+        </div>
+        <button type="submit" class="btn-primary" style="background:var(--success); width:100%;">Create Account</button>
+      </form>
+
+      <div style="margin-top:15px; text-align:center; font-size:12px;">
+        <a href="#" id="toggleAuth" onclick="toggleRegisterMode(event)" style="color:var(--primary);">Need an account?
+          Register</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="main-layout">
+    <div class="container">
+      <div class="header-top">
+        <div>
+          <h1 style="margin:0;">Wynn CRM Dashboard</h1>
+          <span style="font-size:13px; color:#64748b;">Logged in as: <b id="displayUsername">Guest</b></span>
+        </div>
+        <button onclick="logoutUser()"
+          style="background:#ef4444; color:white; border:none; padding:8px 14px; border-radius:6px; cursor:pointer; font-weight:bold;">Clock
+          Out & Sign Out</button>
+      </div>
+
+      <!-- Compact Campaign Dropdown Switcher -->
+      <div
+        style="background: #f1f5f9; padding: 12px 18px; border-radius: 10px; border: 1px solid var(--border-color); margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between; gap: 15px;">
+        <label for="campaignSelect"
+          style="margin: 0; font-size: 14px; color: #334155; font-weight: bold; white-space: nowrap;">
+          📁 Select Active Campaign:
+        </label>
+        <select id="campaignSelect" onchange="switchCampaign(this.value)"
+          style="font-weight: bold; color: var(--primary); font-size: 14px; padding: 8px 12px; cursor: pointer; width: auto; flex: 1; max-width: 350px;">
+          <option value="ACA Health Care">🏥 Campaign 1: ACA Health Care</option>
+          <option value="Secondary Adjustments">🏢 Campaign 2: Secondary Company Adjustments</option>
+        </select>
+      </div>
+
+      <!-- Dynamic Analytics Bar -->
+      <div class="analytics-grid">
+        <div class="analytics-card" id="analyticsCard1">
+          <h4 id="statTitle1">Enrolled ACA Clients</h4>
+          <div id="statCampaignTotal">0</div>
+        </div>
+        <div class="analytics-card" style="border-left-color: var(--success);">
+          <h4>Your Total Enrolled (This Campaign)</h4>
+          <div id="statUserTotal">0</div>
+        </div>
+        <div class="analytics-card" style="border-left-color: #8b5cf6;">
+          <h4>Active Agents Online</h4>
+          <div id="statActiveAgents">0</div>
+        </div>
+      </div>
+
+      <!-- Dynamic Client Entry Form -->
+      <h2 id="formTitle">Add Client Record: ACA Health Care</h2>
+      <form id="clientForm" onsubmit="saveClient(event)">
+        <div class="form-grid">
+          <div>
+            <label>First Name *</label>
+            <input type="text" id="firstName" required>
+          </div>
+          <div>
+            <label>Last Name *</label>
+            <input type="text" id="lastName" required>
+          </div>
+          <div>
+            <label>DOB *</label>
+            <input type="date" id="dob" required>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div>
+            <label>SSN *</label>
+            <input type="text" id="ssn" placeholder="XXX-XX-XXXX" required oninput="formatSSNInput(this)">
+          </div>
+          <div>
+            <label>Phone Number *</label>
+            <input type="tel" id="phone" required>
+          </div>
+          <div>
+            <label>Email Address</label>
+            <input type="email" id="email">
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <div style="grid-column: span 2;">
+            <label>Address</label>
+            <input type="text" id="address">
+          </div>
+          <div>
+            <label>Effective Date</label>
+            <input type="date" id="effectiveDate">
+          </div>
+        </div>
+
+        <!-- Dynamic Fields for ACA Health Care -->
+        <div id="acaFields">
+          <h3>ACA Insurance Details</h3>
+          <div class="form-grid">
+            <div>
+              <label>Carrier / Provider *</label>
+              <select id="carrier">
+                <option value="">Select Provider</option>
+                <option value="Kaiser">Kaiser</option>
+                <option value="Ambetter">Ambetter</option>
+                <option value="Blue Cross Blue Shield">Blue Cross Blue Shield (BCBS)</option>
+                <option value="Molina">Molina</option>
+                <option value="Oscar">Oscar</option>
+                <option value="United Healthcare">United Healthcare</option>
+                <option value="Alliant">Alliant</option>
+              </select>
+            </div>
+            <div>
+              <label>Insurance Level *</label>
+              <select id="level">
+                <option value="Bronze">Bronze</option>
+                <option value="Silver">Silver</option>
+                <option value="Gold">Gold</option>
+                <option value="Platinum">Platinum</option>
+              </select>
+            </div>
+            <div>
+              <label>Monthly Premium ($)</label>
+              <input type="number" step="0.01" id="premium" placeholder="0.00">
+            </div>
+          </div>
+        </div>
+
+        <!-- Dynamic Fields for Secondary Company Adjustments -->
+        <div id="secondaryFields" style="display: none;">
+          <h3>Secondary Company Adjustment Details</h3>
+          <div class="form-grid">
+            <div>
+              <label>Adjustment Type *</label>
+              <select id="adjustmentType">
+                <option value="Plan Change">Plan Change</option>
+                <option value="Address / Contact Update">Address / Contact Update</option>
+                <option value="Income / Subsidy Adjustment">Income / Subsidy Adjustment</option>
+                <option value="Dependent Addition">Dependent Addition</option>
+                <option value="Cancellation Request">Cancellation Request</option>
+              </select>
+            </div>
+            <div style="grid-column: span 2;">
+              <label>Adjustment Remarks / Notes *</label>
+              <input type="text" id="adjustmentNotes" placeholder="Enter details regarding this adjustment...">
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary" id="saveBtn" style="background:var(--success); margin-top:10px;">Save
+          Record</button>
+      </form>
+
+      <!-- Admin Section: Clock Activity History -->
+      <div style="margin-top: 35px; border-top: 2px solid var(--border-color); padding-top: 20px; display: none;"
+        id="adminSection">
+        <h2>Admin Control Panel: Agent Clock-In / Clock-Out Log</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Username</th>
+              <th>Action</th>
+              <th>Timestamp</th>
+            </tr>
+          </thead>
+          <tbody id="activityLogBody">
+            <tr>
+              <td colspan="3">Loading logs...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <hr style="margin: 30px 0; border: none; border-top: 1px solid var(--border-color);">
+
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h2 id="directoryTitle">ACA Enrolled Client Directory</h2>
+        <div id="adminExportContainer"></div>
+      </div>
+
+      <!-- Search & Filter Bar -->
+      <div style="display:flex; gap:10px; margin-bottom:15px;">
+        <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="🔍 Search this campaign directory..."
+          style="flex:2;">
+      </div>
+
+      <!-- Campaign-Specific Directory Table -->
+      <table id="clientTable">
+        <thead>
+          <tr id="tableHeaderRow">
+            <th>ID</th>
+            <th>Status</th>
+            <th>Name</th>
+            <th>DOB / SSN</th>
+            <th>Contact</th>
+            <th>Carrier / Details</th>
+            <th>Level / Remarks</th>
+            <th>Premium</th>
+            <th>Effective Date</th>
+            <th>Agent</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="clientTableBody"></tbody>
+      </table>
+    </div>
+
+    <!-- Active Users Sidebar -->
+    <div class="sidebar-panel">
+      <h3>🟢 Active Users Online</h3>
+      <div id="activeUsersList">
+        <div style="font-size: 13px; color: #64748b;">Loading active agents...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chat Widget Button -->
+  <div class="chat-widget-button" onclick="toggleChatPopup()">
+    💬 Office Chat <span class="notification-badge" id="chatBadge">0</span>
+  </div>
+
+  <!-- Chat Popup -->
+  <div class="chat-popup" id="chatPopup">
+    <div class="chat-popup-header">
+      <span>Office Live Chat</span>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <button type="button" onclick="exportChatCSV()" id="adminChatExportBtn"
+          style="display:none; font-size:10px; background:rgba(255,255,255,0.2); color:white; border:none; padding:3px 6px; border-radius:4px; cursor:pointer;">CSV</button>
+        <span onclick="toggleChatPopup()" style="cursor:pointer;">✕</span>
+      </div>
+    </div>
+    <div class="chat-recipient-bar">
+      <label for="chatRecipient">Send to:</label>
+      <select id="chatRecipient">
+        <option value="All">Everyone (Public)</option>
+      </select>
+    </div>
+    <div class="chat-box" id="chatLog"></div>
+    <div style="display:flex; padding:8px; gap:6px; border-top:1px solid var(--border-color);">
+      <input type="text" id="chatInput" placeholder="Message..." style="padding:8px;" onkeypress="checkEnter(event)">
+      <button onclick="sendMessage()" class="btn-primary" style="padding:8px 12px;">Send</button>
+    </div>
+  </div>
+
+  <script>
+    const socket = io();
+    let currentUser = '';
+    let isAdmin = false;
+    let allContacts = [];
+    let currentCampaign = 'ACA Health Care';
+    let unreadCount = 0;
+    let isChatOpen = false;
+
+    window.onload = checkSession;
+
+    function checkSession() {
+      fetch('/api/session')
+        .then(res => res.json())
+        .then(data => {
+          if (data.loggedIn) {
+            currentUser = data.user.username;
+            isAdmin = data.user.isAdmin;
+            document.getElementById('displayUsername').textContent = currentUser + (isAdmin ? ' (Admin)' : '');
+            document.getElementById('loginOverlay').style.display = 'none';
+
+            socket.emit('register-user', currentUser);
+
+            if (isAdmin) {
+              document.getElementById('adminSection').style.display = 'block';
+              loadActivityLogs();
+            }
+
+            updateExportButton();
+            loadContacts();
+          } else {
+            document.getElementById('loginOverlay').style.display = 'flex';
+          }
+        });
+    }
+
+    function switchCampaign(campaignName) {
+      currentCampaign = campaignName;
+      const acaFields = document.getElementById('acaFields');
+      const secondaryFields = document.getElementById('secondaryFields');
+      const campaignSelect = document.getElementById('campaignSelect');
+
+      if (campaignSelect) {
+        campaignSelect.value = campaignName;
+      }
+
+      if (campaignName === 'ACA Health Care') {
+        acaFields.style.display = 'block';
+        secondaryFields.style.display = 'none';
+        document.getElementById('formTitle').textContent = 'Add Client Record: ACA Health Care';
+        document.getElementById('directoryTitle').textContent = 'ACA Enrolled Client Directory';
+        document.getElementById('statTitle1').textContent = 'Enrolled ACA Clients';
+      } else {
+        acaFields.style.display = 'none';
+        secondaryFields.style.display = 'block';
+        document.getElementById('formTitle').textContent = 'Add Record: Secondary Company Adjustments';
+        document.getElementById('directoryTitle').textContent = 'Secondary Company Client Directory';
+        document.getElementById('statTitle1').textContent = 'Secondary Company Clients';
+      }
+
+      updateExportButton();
+      renderTable();
+      updateAnalytics();
+    }
+
+    function updateExportButton() {
+      if (isAdmin) {
+        document.getElementById('adminExportContainer').innerHTML =
+          `<a href="/api/download-excel?campaign=${encodeURIComponent(currentCampaign)}" class="btn-export">📥 Export ${currentCampaign} Directory (CSV)</a>`;
+        document.getElementById('adminChatExportBtn').style.display = 'inline-block';
+      }
+    }
+
+    function togglePasswordVisibility(fieldId, btn) {
+      const input = document.getElementById(fieldId);
+      if (input.type === 'password') {
+        input.type = 'text';
+        btn.innerText = '🙈 Hide';
+      } else {
+        input.type = 'password';
+        btn.innerText = '👁️ Show';
+      }
+    }
+
+    function formatSSNInput(input) {
+      let val = input.value.replace(/\D/g, '').slice(0, 9);
+      if (val.length > 5) {
+        val = `${val.slice(0, 3)}-${val.slice(3, 5)}-${val.slice(5)}`;
+      } else if (val.length > 3) {
+        val = `${val.slice(0, 3)}-${val.slice(3)}`;
+      }
+      input.value = val;
+    }
+
+    function maskSSN(ssnStr) {
+      if (!ssnStr || ssnStr.length < 4) return '***-**-****';
+      const clean = ssnStr.replace(/\D/g, '');
+      if (clean.length >= 4) return `***-**-${clean.slice(-4)}`;
+      return '***-**-****';
+    }
+
+    function toggleRegisterMode(e) {
+      e.preventDefault();
+      const loginForm = document.getElementById('loginForm');
+      const regForm = document.getElementById('registerForm');
+      const title = document.getElementById('modalTitle');
+      const toggleBtn = document.getElementById('toggleAuth');
+
+      if (regForm.style.display === 'none') {
+        loginForm.style.display = 'none';
+        regForm.style.display = 'block';
+        title.innerText = 'Register New Agent';
+        toggleBtn.innerText = 'Already have an account? Sign In';
+      } else {
+        loginForm.style.display = 'block';
+        regForm.style.display = 'none';
+        title.innerText = '🔒 Wynn CRM Login';
+        toggleBtn.innerText = 'Need an account? Register';
+      }
+    }
+
+    function handleLogin(e) {
+      e.preventDefault();
+      fetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: document.getElementById('loginUsername').value,
+          password: document.getElementById('loginPassword').value
+        })
+      }).then(res => res.json()).then(data => {
+        if (data.success) location.reload();
+        else alert(data.message || 'Login failed');
+      });
+    }
+
+    function handleRegister(e) {
+      e.preventDefault();
+      const password = document.getElementById('regPassword').value;
+      if (password.length < 8) {
+        alert('Password must be at least 8 characters long.');
+        return;
+      }
+
+      fetch('/register-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: document.getElementById('regUsername').value,
+          password: password
+        })
+      }).then(res => res.json()).then(data => {
+        if (data.success) {
+          alert('Account created! Logging in...');
+          location.reload();
+        } else alert(data.message);
+      });
+    }
+
+    function logoutUser() {
+      fetch('/logout', { method: 'POST' }).then(() => location.reload());
+    }
+
+    function loadActivityLogs() {
+      fetch('/api/activity-log')
+        .then(res => res.json())
+        .then(logs => {
+          const tbody = document.getElementById('activityLogBody');
+          if (!logs || !logs.length) {
+            tbody.innerHTML = '<tr><td colspan="3">No clock activity recorded yet.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = logs.map(log => `
+            <tr>
+              <td><b>${log.username}</b></td>
+              <td>${log.action}</td>
+              <td>${log.timestamp}</td>
+            </tr>
+          `).join('');
+        })
+        .catch(() => { });
+    }
+
+    function saveClient(e) {
+      e.preventDefault();
+      const payload = {
+        campaign: currentCampaign,
+        lineOfBusiness: currentCampaign,
+        firstName: document.getElementById('firstName').value,
+        lastName: document.getElementById('lastName').value,
+        dob: document.getElementById('dob').value,
+        ssn: document.getElementById('ssn').value,
+        phone: document.getElementById('phone').value,
+        email: document.getElementById('email').value || 'N/A',
+        address: document.getElementById('address').value || 'N/A',
+        effectiveDate: document.getElementById('effectiveDate').value || new Date().toISOString().split('T')[0],
+        carrier: currentCampaign === 'ACA Health Care' ? document.getElementById('carrier').value : 'N/A',
+        level: currentCampaign === 'ACA Health Care' ? document.getElementById('level').value : 'N/A',
+        premium: currentCampaign === 'ACA Health Care' ? (document.getElementById('premium').value || '0.00') : '0.00',
+        adjustmentType: currentCampaign === 'Secondary Adjustments' ? document.getElementById('adjustmentType').value : '',
+        adjustmentNotes: currentCampaign === 'Secondary Adjustments' ? document.getElementById('adjustmentNotes').value : ''
+      };
+
+      fetch('/api/contacts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).then(res => res.json()).then(data => {
+        if (data.success) {
+          document.getElementById('clientForm').reset();
+          loadContacts();
+        }
+      });
+    }
+
+    function updateStatus(id, newStatus) {
+      fetch(`/api/contacts/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      }).then(res => res.json()).then(data => {
+        if (data.success) loadContacts();
+      });
+    }
+
+    function loadContacts() {
+      fetch('/api/contacts').then(res => res.json()).then(contacts => {
+        allContacts = contacts;
+        updateAnalytics();
+        renderTable();
+      });
+    }
+
+    function updateAnalytics() {
+      const activeCampaignContacts = allContacts.filter(c => (c.campaign || c.lineOfBusiness || 'ACA Health Care') === currentCampaign);
+      document.getElementById('statCampaignTotal').textContent = activeCampaignContacts.length;
+
+      const userEnrolledCount = activeCampaignContacts.filter(c => c.user === currentUser).length;
+      document.getElementById('statUserTotal').textContent = userEnrolledCount;
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('clientTableBody');
+      const textFilter = document.getElementById('searchInput').value.toLowerCase();
+
+      const campaignContacts = allContacts.filter(c => (c.campaign || c.lineOfBusiness || 'ACA Health Care') === currentCampaign);
+
+      const filtered = campaignContacts.filter(c => {
+        return `${c.firstName} ${c.lastName} ${c.phone} ${c.user} ${c.carrier || ''} ${c.adjustmentType || ''}`.toLowerCase().includes(textFilter);
+      });
+
+      tbody.innerHTML = filtered.map(c => `
+        <tr>
+          <td>#${c.id}</td>
+          <td>
+            <span class="badge ${c.status === 'Cancelled' ? 'badge-cancelled' : (c.status === 'Pending' ? 'badge-pending' : 'badge-active')}">
+              ${c.status || 'Active'}
+            </span>
+          </td>
+          <td><b>${c.firstName} ${c.lastName}</b></td>
+          <td>DOB: ${c.dob}<br><small>SSN: ${maskSSN(c.ssn)}</small></td>
+          <td>${c.phone}<br><small>${c.email}</small></td>
+          <td><b>${currentCampaign === 'ACA Health Care' ? (c.carrier || 'N/A') : (c.adjustmentType || 'N/A')}</b></td>
+          <td>${currentCampaign === 'ACA Health Care' ? (c.level || 'N/A') : (c.adjustmentNotes || 'N/A')}</td>
+          <td>$${c.premium || '0.00'}</td>
+          <td>${c.effectiveDate || 'N/A'}</td>
+          <td><b>${c.user}</b></td>
+          <td>
+            <select style="padding:4px; font-size:11px;" onchange="updateStatus(${c.id}, this.value)">
+              <option value="Active" ${c.status === 'Active' ? 'selected' : ''}>Active</option>
+              <option value="Pending" ${c.status === 'Pending' ? 'selected' : ''}>Pending</option>
+              <option value="Cancelled" ${c.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option>
+            </select>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function filterTable() {
+      renderTable();
+    }
+
+    function toggleChatPopup() {
+      const popup = document.getElementById('chatPopup');
+      popup.classList.toggle('active');
+      isChatOpen = popup.classList.contains('active');
+
+      if (isChatOpen) {
+        unreadCount = 0;
+        const badge = document.getElementById('chatBadge');
+        badge.textContent = '0';
+        badge.style.display = 'none';
+      }
+    }
+
+    socket.on('update-active-users', users => {
+      const listContainer = document.getElementById('activeUsersList');
+      const recipientSelect = document.getElementById('chatRecipient');
+
+      document.getElementById('statActiveAgents').textContent = users.length;
+
+      if (!users.length) {
+        listContainer.innerHTML = '<div style="font-size: 13px; color: #64748b;">No active users.</div>';
+        return;
+      }
+
+      listContainer.innerHTML = users.map(u => `
+        <div class="active-user-item">
+          <div class="status-dot"></div>
+          <span><b>${u}</b> ${u === currentUser ? '(You)' : ''}</span>
+        </div>
+      `).join('');
+
+      const currentSelected = recipientSelect.value;
+      recipientSelect.innerHTML = `<option value="All">Everyone (Public)</option>` +
+        users.filter(u => u !== currentUser).map(u => `<option value="${u}">Private: ${u}</option>`).join('');
+
+      if ([...recipientSelect.options].some(opt => opt.value === currentSelected)) {
+        recipientSelect.value = currentSelected;
+      }
+    });
+
+    socket.on('chat-history', history => {
+      document.getElementById('chatLog').innerHTML = history.map(h => `
+        <div class="${h.isPrivate ? 'chat-msg private' : 'chat-msg'}">
+          <b>${h.isPrivate ? '[Private] ' : ''}${h.sender}:</b> ${h.text}
+        </div>
+      `).join('');
+    });
+
+    socket.on('chat-message', msg => {
+      const chatLog = document.getElementById('chatLog');
+      chatLog.innerHTML += `
+        <div class="${msg.isPrivate ? 'chat-msg private' : 'chat-msg'}">
+          <b>${msg.isPrivate ? '[Private] ' : ''}${msg.sender}:</b> ${msg.text}
+        </div>
+      `;
+      chatLog.scrollTop = chatLog.scrollHeight;
+
+      if (msg.sender !== currentUser && !isChatOpen) {
+        unreadCount++;
+        const badge = document.getElementById('chatBadge');
+        badge.textContent = unreadCount;
+        badge.style.display = 'inline-block';
+      }
+    });
+
+    function sendMessage() {
+      const input = document.getElementById('chatInput');
+      const recipient = document.getElementById('chatRecipient').value;
+      if (input.value.trim()) {
+        socket.emit('chat-message', { sender: currentUser, recipient, text: input.value.trim() });
+        input.value = '';
+      }
+    }
+
+    function checkEnter(event) {
+      if (event.key === 'Enter') {
+        sendMessage();
+      }
+    }
+
+    function exportChatCSV() {
+      socket.emit('export-chat-log');
+    }
+
+    socket.on('download-chat-csv', csvData => {
+      const blob = new Blob([csvData], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.setAttribute('href', url);
+      a.setAttribute('download', 'Wynn_CRM_Chat_Logs.csv');
+      a.click();
+    });
+  </script>
+</body>
+
+</html>
