@@ -615,7 +615,7 @@
     </div>
   </div>
 
-  <script>
+ <script>
     const socket = io();
     let currentUser = '';
     let isAdmin = false;
@@ -624,7 +624,24 @@
     let unreadCount = 0;
     let isChatOpen = false;
 
-    window.onload = checkSession;
+    window.onload = function() {
+      checkSession();
+      setDefaultDates();
+    };
+
+    // Automatically set today's date into date inputs
+    function setDefaultDates() {
+      const today = new Date().toISOString().split('T')[0];
+      const dobInput = document.getElementById('dob');
+      const effDateInput = document.getElementById('effectiveDate');
+      
+      if (dobInput && !dobInput.value) {
+        dobInput.value = today;
+      }
+      if (effDateInput && !effDateInput.value) {
+        effDateInput.value = today;
+      }
+    }
 
     function checkSession() {
       fetch('/api/session')
@@ -675,6 +692,7 @@
         document.getElementById('statTitle1').textContent = 'Secondary Company Clients';
       }
 
+      setDefaultDates(); // Refresh date defaults on switch
       updateExportButton();
       renderTable();
       updateAnalytics();
@@ -825,6 +843,7 @@
       }).then(res => res.json()).then(data => {
         if (data.success) {
           document.getElementById('clientForm').reset();
+          setDefaultDates(); // Reset inputs and re-populate current date
           loadContacts();
         }
       });
@@ -940,7 +959,7 @@
     socket.on('chat-history', history => {
       document.getElementById('chatLog').innerHTML = history.map(h => `
         <div class="${h.isPrivate ? 'chat-msg private' : 'chat-msg'}">
-          <b>${h.isPrivate ? '[Private] ' : ''}${h.sender}:</b> ${h.text}
+          <b>${h.isPrivate ? `[Private to ${h.recipient}] ` : ''}${h.sender}:</b> ${h.text}
         </div>
       `).join('');
     });
@@ -949,7 +968,7 @@
       const chatLog = document.getElementById('chatLog');
       chatLog.innerHTML += `
         <div class="${msg.isPrivate ? 'chat-msg private' : 'chat-msg'}">
-          <b>${msg.isPrivate ? '[Private] ' : ''}${msg.sender}:</b> ${msg.text}
+          <b>${msg.isPrivate ? `[Private] ` : ''}${msg.sender}:</b> ${msg.text}
         </div>
       `;
       chatLog.scrollTop = chatLog.scrollHeight;
