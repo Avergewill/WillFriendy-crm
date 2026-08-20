@@ -254,7 +254,7 @@ app.get('/api/download-excel', requireAdmin, (req, res) => {
   let csv = 'ID,Status,Campaign,Name,DOB,Phone,Email,Address,Carrier/Date,Level/Details,Premium,Notes,Agent\n';
 
   filtered.forEach(c => {
-    const fullName = c.firstName ? `${c.firstName} ${c.lastName || ''}`.trim() : (c.patientName || '');
+    const fullName = firstName ? `${firstName} ${c.lastName || ''}`.trim() : (c.patientName || '');
     csv += `"${c.id}","${c.status || 'Active'}","${c.campaign || ''}","${fullName}","${c.dob || ''}","${decrypt(c.phone) || ''}","${decrypt(c.email) || ''}","${decrypt(c.address) || ''}","${c.carrier || c.date || ''}","${c.level || c.moreDetails || ''}","${c.premium || '0.00'}","${(c.notes || c.family || '').replace(/"/g, '""')}","${c.user || ''}"\n`;
   });
 
